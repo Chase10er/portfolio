@@ -1,0 +1,183 @@
+---
+title: "STAT 345 Midterm Project"
+font: 12pt
+date: "Due March 29"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+> "Our offense is like the Pythagorean Theorem. There is no answer!", _Shaquille O'Neal_
+
+## The Background
+
+Your role for the midterm project is that of data analyst intern at an NBA (professional basketball) team. Your direct supervisor (also part of the analytics team) has asked you to create a data visualization to illustrate how (or if) the team's shots have changed over time. After some initial clarifying questions, your supervisor confessed that they had seen some pretty cool shot charts at http://savvastjortjoglou.com/nba-shot-sharts.html and would like to extend the ideas a bit. 
+
+Your data for the midterm project may come from a variety of sources, including the NBA directly, as well as Basketball-Reference, HoopsHype, and others. There are several ways to access the data, but perhaps the simplest is through the `nbastatR` package, which serves as a wrapper (or set of helper functions) for these various data sources. There is a lot of potentially useful information that can be found using this package; unfortunately, the documentation is somewhat inconsistent. For example, the documentation at https://www.rdocumentation.org/packages/nbastatR/versions/0.1.110202031 is pretty well-formatted and easy to navigate, but the current function names have changed a bit (see `?nbastatR` and click "Index"). (If you use the nbastatR package, you'll want to install the package using the following code. There are other packages with this type of data, though.) You are welcome to scrape other websites or use other packages if you choose.
+
+```{r}
+library(devtools)
+library(nbastatR)
+library(tidyverse)
+library(ggimage)
+library(devtools)
+library(png)
+library(grid)
+library(magick)
+```
+
+```{r}
+Sys.setenv(VROOM_CONNECTION_SIZE = 10 * 1024^2)  # 10 MB buffer size
+```
+
+```{r}
+wolves_1997 <- teams_shots(teams = "Minnesota Timberwolves", seasons = 1997)
+wolves_2002 <- teams_shots(teams = "Minnesota Timberwolves", seasons = 2002)
+wolves_2007 <- teams_shots(teams = "Minnesota Timberwolves", seasons = 2007)
+wolves_2012 <- teams_shots(teams = "Minnesota Timberwolves", seasons = 2012)
+wolves_2017 <- teams_shots(teams = "Minnesota Timberwolves", seasons = 2017)
+wolves_2022 <- teams_shots(teams = "Minnesota Timberwolves", seasons = 2022)
+
+
+```
+
+colors <- #005083, #00a94f
+logo <- df_dict_nba_teams[df_dict_nba_teams$idTeam == 1610612750, "urlThumbnailTeam"]
+
+## The Tasks
+
+1. (30 points) Produce a graphic displaying the shot locations for a particular team over several years. Some notes:
+
+   - Colors should be chosen to reflect the team, if possible.
+   - There are likely many overlaid points -- handle this by either binning these by location, or use opacity.
+   - Incorporate information about whether the shot was made or not (shape, color, etc.).
+   - The graphic should be well-labeled, titled, etc.
+   - Start with a graph for a single year, then extend to several years. Up to 20 years of shot data is available. Either facet these by year or animate using the years.
+   - You'll want to figure out what the coordinates mean somehow. This might be through the documentation, but could also be determined using aspects of the data itself and the dimensions of an NBA court.
+    - Put a basketball court on the background of the image (you'll need to scale it appropriately).
+    
+    
+```{r}
+points_on_x_axis <- wolves_2021 %>%
+  filter(abs(locationY) == 0)
+
+img <- readPNG("dimensions_nba_court.png")
+grid.newpage()
+grid.raster(img)
+```    
+    
+    
+
+One x coordinate is .1 feet. so an x coordinate of 100 is 10 feet from the basket
+
+We can use this information to place a basketball court. 
+
+The 3 point line of a basketball hoop is 23 feet 9 inches or 23.75. Thus the arc of the 3 point line should start at -237.50
+   
+Additionally, the width of a basketball court is 50 feet. Thus the range of the coordinates will be -250 to 250. Finally, a basketball court is 94 feet in height. Thus, the max point of the image should be placed at the y coordinate of -940 (we also define the max to be infinity so that the image lies properly on the plot). 
+
+       
+    
+    
+```{r}
+library(grid)
+
+nba_court <- readPNG("nba_court_vert_trim.png")
+logo <- readPNG("Timberwolves_logo.png")
+
+
+# x and y limits of the basketball court image
+court_x_limits <- c(-250, 250)  # Full basketball court width is 50 feet
+court_y_limits <- c(Inf, -940)  # Full basketball court width is 94 feet
+
+
+team_colors <- c("#005083", "#00a94f")
+
+missed_color <- "#E63B17"  
+made_color <- "#366EB8"
+
+
+# scale y-axis labels by 1/10th
+scale_y_labels <- function(x) { 
+  paste(x/10, " ft")
+}
+
+# scale x-axis labels by 1/10th
+scale_x_labels <- function(x) { 
+  paste(x/10, " ft")
+}
+
+plot <- ggplot(wolves_2021, aes(locationX, locationY, color = typeEvent)) +
+  annotation_raster(nba_court, xmin = court_x_limits[1], xmax = court_x_limits[2],
+                    ymin = court_y_limits[1], ymax = court_y_limits[2], interpolate = TRUE) +
+  geom_point(alpha = .25) +
+  scale_color_manual(values = c("Missed Shot" = missed_color, "Made Shot" = made_color)) +   
+  labs(title = "Shot Chart for the Minnesota Timberwolves (2021)", color = "Outcome") +
+  theme_minimal() +
+  theme(axis.title = element_blank(), legend.box.background = element_rect(color = "#005083", linewidth = 1), plot.margin = unit(c(1, 1, 1, 1), "lines"), legend.position = "right")  +
+  scale_x_continuous(labels = scale_x_labels) +
+  scale_y_continuous(trans = "reverse", labels = scale_y_labels) +
+  annotation_raster(logo, xmin = -60, xmax = 60, ymin = -500 , ymax = -370 )   
+
+plot
+ggsave("plot.jpg", plot = plot)  
+
+```
+
+
+   
+  
+  
+  
+2. (30 points) Summarize the graphic/series of graphics into a digestible, bullet-point brief report for front-office staff. Some notes:
+
+   - The main body of the report should be very brief -- just the graphic(s) and the bullet-pointed list of findings, which should be short and clear.
+   - Include a more detailed explanation of these bullet points, for further reading by those interested. This section should follow the bullet-point section, but should be organized similarly for reference. 
+   - Your report to the front-office shouldn't include any code.
+   - This report should be generated using RMarkdown. However, the choice of output type (Word, PDF, or HTML) is up to you (you could even make slides if you want to). 
+   
+3. (30 points) Write and document clean, efficient, reproducible code. Some notes:
+
+   - This code will be viewed by your direct supervisor.
+   - The code file should include your code to gather, join, and clean the data; the code to generate the graphic(s) presented; and your commentary on the results (so, a single .rmd file, or an .rmd file that sources an .r file).
+   - Your code should be clean, organized, and reproducible. Remove unnecessary/scratch/exploratory code.
+   - Your code should be well commented. In particular, any decisions or judgement calls made in the analysis process should be explained/justified. Sections of code should be identified even if not functionalized (including purpose, data/argument inputs, analysis outputs).
+   
+4. (10 points) Above and Beyond. Choose either option below. You are welcome to explore both, but only one is required. 
+
+  - Option 1: Explore the data a bit, and create a graphic that uses (or incorporates) different information than what was used above. Some notes:
+    - Create an additional graphic that incorporates at least one additional variable not previously used (this should add to the graphic in part 1). The additional data should be drawn from a different dataset (function call) than the original graphic used. These two (or more) datasets may need to be joined appropriately.
+    - You can either add more information to the plot above, or create a different plot. 
+     - Formatting, labelling, etc. are all important here too.
+    - Adding marginal densities or other "bells and whistles" might offer additional insight.
+    - This graphic should be included at the end of the report (after the more detailed explanations). 
+     - You should include a brief description of the graphic (highlighting the different/additional information used).
+  - Option 2: If the NBA were to incorporate a 4-point shot, where would you draw a 4-point arc? Some notes:
+    - You likely should base your decision at least partly on proportion of shots made from a given range. You might consider an expected value calculation here.
+    - Your arc can be shaped as you see fit; simple arcs are sufficient for this exploration.
+    - Provide an example of a consequence (positive or negative) if a 4-point shot was incorporated. (e.g., "my_favorite_player's season point total would increase by x%")
+    - You do not need to create a plot representing your arc, though you are welcome to do so!
+
+ideas: where do assists typically start
+where do turnovers happen
+what is the most frequent place a player of a certain position shoots from (starters only)
+  
+ bref_players_stats(seasons = 2021)
+
+  team_season_roster(team = "Denver Nuggets", season = 2015, return_message = T)
+  
+zone points: what zone exhibits the most made shots relative to attempted shots
+
+shot clock 
+  
+## The Deliverables
+
+1. Upload your report and code file(s) to GitHub by 11:59am (noon) on Friday, March 29.
+2. Submit (on Canvas) your report, code, and link to your GitHub repository by 11:59am (noon) on Friday, March 29.
+  
+  
+  
+  
+
+
